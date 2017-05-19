@@ -1,0 +1,272 @@
+/*
+ * FPS report by Pool Nganpeerapong for Operation red sea project.
+ */
+package fps;
+
+import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+
+public class FPSReader {
+    
+    public static void main(String[] args) throws IOException {
+
+        // Source file directory
+        String dirName = "/Volumes/DS_M2_06/Day62_13-05-2017_Square+Workshop";
+        
+        //String dirName = null;
+        //getInput(dirName);
+        
+        // Output file name on desktop
+        String outputTextFile = "Day.txt";
+        
+        
+        File rootDir = new File(dirName);
+        List<File> list = new ArrayList<>();
+        
+        getXmlAleR3dFiles(rootDir, list); // Get list of all files from the target directory
+        
+        // Check if list is empty
+        if (list.isEmpty()) {
+            System.out.println("File not found!"); // End of program!
+        } else {
+            System.out.println("WARNING: not support DJI filename.");
+            // Create output text file
+            java.io.File outputFile = new java.io.File("/Users/firework/Desktop/" + outputTextFile);
+            java.io.PrintWriter output = new java.io.PrintWriter(outputFile);
+              
+            output.println("************************");
+            output.println("      Clip report");
+            output.println("************************"); 
+            output.println("Source: " + dirName);
+        
+            String oldRollNo = null;
+            String currentRollNo = null;
+            String suffix = null;
+            String absoluteFileName = null;
+            String fileName = null;
+            
+            int allTotal = 0;
+            int totalClips = 0;
+            int totalRolls = 0;
+        
+            for(File targetFile : list) {
+
+                absoluteFileName = targetFile.getAbsolutePath();
+
+                fileName = targetFile.getName();
+                currentRollNo = fileName.substring(0,4);
+
+                if (!currentRollNo.equals(oldRollNo)) { // Print headline
+                    if (totalClips != 0) {
+                        System.out.println("Total: " + totalClips + " clip(s)");
+                        output.println("-------------------------------------------------");
+                        output.println("Total: " + totalClips + " clip(s)");
+                        allTotal = allTotal + totalClips;
+                    }
+                    
+                    totalClips = 0;
+                    totalRolls++;
+                    
+                    System.out.println("\n" + "Roll: " + currentRollNo);
+                    System.out.println("-------------------------------------------------");
+                    
+                    //output.println("\n");
+                    output.println("\nSource_filename           Project_fps  Sensor_fps");
+                    output.println("-------------------------------------------------");
+                    
+                } 
+
+                Scanner s = null;
+                
+                try {
+                    s = new Scanner(new BufferedReader(new FileReader(absoluteFileName)));
+
+                    suffix = fileName.substring(fileName.length() - 4);
+                    
+                    // if XML file
+                    if (suffix.equals(".xml")){
+
+                        // ALEXA XT Clips 
+                        String[] fpsArray;
+                        fpsArray = new String[3];
+                        //for (int i = 1; i <= 60; i++) {
+                        while (s.hasNext()) {
+                            String str = s.nextLine();
+
+                            if (str.endsWith("OriginalFrameRate>")) {
+                                Pattern pattern = Pattern.compile(">(.*?)<");
+                                Matcher matcher = pattern.matcher(str);
+                                while (matcher.find()) {
+                                   fpsArray[2] = matcher.group(1);
+                                }   
+                            } else if (str.endsWith("AlexaProjectRate>")) {
+                                Pattern pattern = Pattern.compile(">(.*?)<");
+                                Matcher matcher = pattern.matcher(str);
+                                while (matcher.find()) {
+                                    fpsArray[1] = matcher.group(1);                       
+                                } 
+                            } else if (str.endsWith("AlexaSxSName>")) { 
+                                Pattern pattern = Pattern.compile(">(.*?)<");
+                                Matcher matcher = pattern.matcher(str);
+                                while (matcher.find()) {
+                                    fpsArray[0] = matcher.group(1);
+                                }
+                                
+                                System.out.println(fpsArray[0] + "        " + fpsArray[1] + "       " 
+                                                 + fpsArray[2] + (fpsArray[1].equals(fpsArray[2]) ? " " : "  *"));
+                                output.println(fpsArray[0] + "        " + fpsArray[1] + "       " 
+                                             + fpsArray[2] + (fpsArray[1].equals(fpsArray[2]) ? " " : "  *"));
+                                totalClips++;
+                                
+                                break; // Exit while loop
+                            } // end if
+                        } // End While hasnext()
+                    } // XML or else is .ale
+                    else if (suffix.equals(".ale")){
+                        
+                        // ALEXA mini by Roll no. - Skip header info 10 lines
+                        for (int j = 1; j <= 10; j++) {
+                            s.nextLine();
+                        }
+
+                        while (s.hasNextLine()) {
+                            String line = s.nextLine();
+                            String[] details = line.split("\t"); // Tab delimited
+                            System.out.println(details[1] + "    " + details[29] + "       " 
+                                             + details[22] + (details[22].equals(details[29]) ? " " : "  *"));
+                            output.println(details[1] + "    " + details[29] + "       " 
+                                         + details[22] + (details[22].equals(details[29]) ? " " : "  *"));
+                            totalClips++;
+                        }
+                    } // Red camera file
+                    else if (suffix.equals(".R3D")) {
+                        String[] cmd = new String[] {"redline","-i",targetFile.getAbsolutePath(),"--printMeta","2"};
+
+                        String sRed = null;
+                        try {
+
+                            Process p = Runtime.getRuntime().exec(cmd);
+
+                            BufferedReader stdInput = new BufferedReader(new InputStreamReader(p.getInputStream()));
+                            BufferedReader stdError = new BufferedReader(new InputStreamReader(p.getErrorStream()));
+
+                            // read the output from the command
+                            //System.out.println("Here is the standard output of the command:");
+                            int k = 0;
+                            String[] redLine;
+                            while ((sRed = stdInput.readLine()) != null) {
+                                if (k == 1) {
+                                    redLine = sRed.split(",");
+                                    System.out.println(redLine[0] + "            " + redLine[23] + "           " 
+                                            + redLine[24] + (redLine[23].equals(redLine[24]) ? " " : "  *"));
+                                    output.println(redLine[0] + "            " + redLine[23] + "           " 
+                                                 + redLine[24] + (redLine[23].equals(redLine[24]) ? " " : "  *"));
+                                    totalClips++;
+                                }
+                                k++;
+                            }
+
+                            // read any errors from the attempted command
+                            //System.out.println("Here is the standard error of the command (if any):\n");
+                            while ((sRed = stdError.readLine()) != null) {
+                                    System.out.println(sRed);
+                            }
+
+                            //System.exit(0);
+                        } catch (IOException e) {
+                            System.out.println("exception happened - here's what I know: ");
+                            e.printStackTrace();
+                            System.exit(-1);
+                        }
+                    } // DJI raw dng BUG!!! DJI cannot separate roll because filename always begins with DJI_
+                    else if (suffix.equals(".dng")) {
+                        
+                        System.out.println(fileName.substring(0,24));
+                        output.println(fileName.substring(0,24));
+                        totalClips++;
+
+                    } // MP4
+                    else if (suffix.equals(".MP4")) {
+                        
+                        System.out.println(fileName);
+                        output.println(fileName);
+                        totalClips++;
+
+                    }
+                    // end else if
+
+                    oldRollNo = targetFile.getName();
+                    oldRollNo = oldRollNo.substring(0,4);
+
+                }  finally {
+                    if (s != null) {
+                        s.close();
+                    }
+                } // end try
+
+            } // end for
+        
+        
+            
+            
+            if (totalClips != 0) {
+                allTotal = allTotal + totalClips;
+                System.out.println("Total: " + totalClips + " clip(s)");
+                System.out.println("\nAll: " + totalRolls +" roll(s)  "+ allTotal + " clip(s)");
+                output.println("-------------------------------------------------");
+                output.println("Total: " + totalClips + " clip(s)");
+                output.println("\nAll: " + totalRolls +" roll(s)  "+ allTotal + " clip(s)");
+            }
+            output.println("=================================================");
+            output.println("*** End of report ***");
+            
+            System.out.println("=================================================");
+            System.out.println("WARNING: not support DJI filename.");
+            System.out.println("- Completed -");
+            
+            // Close output file
+            output.close();
+        
+        } // if list is not Empty
+    } // End main
+    
+    
+    private static String getInput(String prompt) {
+        System.out.print(prompt);
+        Scanner sc = new Scanner(System.in);
+        return sc.nextLine();
+    }
+    
+    
+    private static void getXmlAleR3dFiles(File rootFile, List<File> list)
+    {       
+        File[] files; 
+        if(rootFile.isDirectory())
+        {   
+            files = rootFile.listFiles();
+        }
+        else
+          return;
+        
+        for (File file : files){
+            if(file.isDirectory()) {
+                getXmlAleR3dFiles(file, list);
+            } else {
+                if (file.getName().endsWith(".xml") 
+                    || file.getName().endsWith(".ale")
+                    || file.getName().endsWith("_001.R3D")
+                    || file.getName().endsWith("000000.dng")
+                    || file.getName().endsWith(".MP4")    )
+                {
+                    list.add(file);
+                }
+            }
+        }
+    } // end of getXmlAleR3dFiles()
+    
+}
